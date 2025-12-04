@@ -1,0 +1,10 @@
+{
+  "recommendations": [
+    "streetsidesoftware.code-spell-checker",
+    "denoland.vscode-deno",
+    "DavidAnson.vscode-markdownlint",
+    "esbenp.prettier-vscode",
+    "biomejs.biome-vscode",
+    "YoavBls.pretty-ts-errors"
+  ]
+}
