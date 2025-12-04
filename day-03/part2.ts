@@ -9,10 +9,6 @@ const banks: string[] = (
 	.map((s) => s.trim())
 	.filter((s) => s.length > 0);
 
-/**
- * Finds the maximum joltage by selecting exactly 12 batteries from a bank.
- * Uses a greedy approach: keep the largest digits possible while maintaining order.
- */
 function findMaxJoltage(bank: string, selectCount: number): number {
 	const digits = bank.split("").map((d) => parseInt(d, 10));
 
@@ -20,14 +16,8 @@ function findMaxJoltage(bank: string, selectCount: number): number {
 		return 0;
 	}
 
-	// We need to remove (length - selectCount) digits
-	// To maximize the number, we want to remove smaller digits, especially from the left
-	const toRemove = digits.length - selectCount;
 	const result: number[] = [];
-
 	for (let i = 0; i < digits.length; i++) {
-		// While we can still remove digits and current digit is larger than last kept digit
-		// We can remove if: remaining digits (including current) + (result.length - 1) >= selectCount
 		while (
 			result.length > 0 &&
 			digits[i] > result[result.length - 1] &&
