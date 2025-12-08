@@ -79,3 +79,76 @@ for (let i = 0; i < points.length; i++) {
 heap.sort((a, b) => a.dist2 - b.dist2);
 
 console.log(heap.slice(0, 10));
+
+// Disjoint set union to find the connected components
+const parent = new Array(points.length);
+const size = new Array(points.length);
+
+// Initialize parent and size arrays
+// Each point is its own parent and has a size of 1
+for (let i = 0; i < points.length; i++) {
+	parent[i] = i;
+	size[i] = 1;
+}
+
+/**
+ * Find the parent of a point.
+ *
+ * @param x - The point to find the parent of.
+ * @returns The parent of the point.
+ */
+function find(x: number): number {
+	if (parent[x] !== x) {
+		parent[x] = find(parent[x]);
+	}
+	return parent[x];
+}
+
+/**
+ * Union two points into the same connected component.
+ *
+ * @param a - The first point.
+ * @param b - The second point.
+ */
+function union(a: number, b: number): void {
+	const ra = find(a);
+	const rb = find(b);
+
+	if (ra === rb) {
+		// Both are already in the same component, skipping
+		return;
+	}
+
+	// Attach smaller component to the larger one (by size)
+	if (size[ra] < size[rb]) {
+		parent[ra] = rb;
+		size[rb] += size[ra];
+	} else {
+		parent[rb] = ra;
+		size[ra] += size[rb];
+	}
+}
+
+// Calculate the connected components
+for (const edge of heap) {
+	union(edge.i, edge.j);
+}
+
+const compSizes = new Map<number, number>();
+
+for (let i = 0; i < points.length; i++) {
+	const r = find(i);
+	compSizes.set(r, (compSizes.get(r) ?? 0) + 1);
+}
+
+const sizes = Array.from(compSizes.values()).sort((a, b) => b - a);
+
+console.log("Top component sizes:", sizes.slice(0, 10));
+
+if (sizes.length < 3) {
+	console.error("Less than 3 components, something is wrong.");
+	Deno.exit(1);
+}
+
+const answer = sizes[0] * sizes[1] * sizes[2];
+console.log("Answer:", answer);
