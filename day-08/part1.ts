@@ -17,8 +17,6 @@ console.log(`Found ${points.length} points`);
 
 type Edge = { dist2: number; i: number; j: number };
 
-const edges: Edge[] = [];
-
 /**
  * Calculate the squared distance between two points.
  * This is faster than calculating the Euclidean distance because
