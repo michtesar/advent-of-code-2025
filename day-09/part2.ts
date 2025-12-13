@@ -76,38 +76,65 @@ const validTiles = new Set<string>();
 for (const key of redTiles) validTiles.add(key);
 for (const key of greenTiles) validTiles.add(key);
 
-// Find the largest rectangle with red corners that only contains red/green tiles
-let maxArea = 0;
+// Precompute all rectangle pairs sorted by area (largest first)
+// This allows us to find the maximum faster and skip smaller rectangles
+type RectanglePair = {
+	i: number;
+	j: number;
+	area: number;
+	minX: number;
+	maxX: number;
+	minY: number;
+	maxY: number;
+};
 
+const pairs: RectanglePair[] = [];
 for (let i = 0; i < input.length; i++) {
 	for (let j = i + 1; j < input.length; j++) {
 		const [x1, y1] = input[i];
 		const [x2, y2] = input[j];
+		const rectMinX = Math.min(x1, x2);
+		const rectMaxX = Math.max(x1, x2);
+		const rectMinY = Math.min(y1, y2);
+		const rectMaxY = Math.max(y1, y2);
+		const area = (rectMaxX - rectMinX + 1) * (rectMaxY - rectMinY + 1);
 
-		// Ensure x1 <= x2 and y1 <= y2 for easier rectangle calculation
-		const minX = Math.min(x1, x2);
-		const maxX = Math.max(x1, x2);
-		const minY = Math.min(y1, y2);
-		const maxY = Math.max(y1, y2);
+		pairs.push({
+			i,
+			j,
+			area,
+			minX: rectMinX,
+			maxX: rectMaxX,
+			minY: rectMinY,
+			maxY: rectMaxY,
+		});
+	}
+}
 
-		// Check if all tiles in the rectangle are valid (red or green)
-		let isValid = true;
-		for (let x = minX; x <= maxX; x++) {
-			for (let y = minY; y <= maxY; y++) {
-				if (!validTiles.has(`${x},${y}`)) {
-					isValid = false;
-					break;
-				}
+// Sort by area descending
+pairs.sort((a, b) => b.area - a.area);
+
+// Find the largest valid rectangle
+let maxArea = 0;
+for (const pair of pairs) {
+	// Early exit: if this area is smaller than current max, we're done
+	// (since pairs are sorted descending)
+	if (pair.area <= maxArea) break;
+
+	// Check if all tiles in the rectangle are valid (red or green)
+	// Optimize by checking rows and breaking early
+	let isValid = true;
+	for (let y = pair.minY; y <= pair.maxY && isValid; y++) {
+		for (let x = pair.minX; x <= pair.maxX; x++) {
+			if (!validTiles.has(`${x},${y}`)) {
+				isValid = false;
+				break;
 			}
-			if (!isValid) break;
 		}
+	}
 
-		if (isValid) {
-			const area = (maxX - minX + 1) * (maxY - minY + 1);
-			if (area > maxArea) {
-				maxArea = area;
-			}
-		}
+	if (isValid && pair.area > maxArea) {
+		maxArea = pair.area;
 	}
 }
 
