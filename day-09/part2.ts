@@ -53,28 +53,29 @@ function isPointInPolygon(x: number, y: number, polygon: number[][]): boolean {
 	return inside;
 }
 
-// Find bounds of the grid
-const maxX = Math.max(...input.map(([x]) => x));
-const maxY = Math.max(...input.map(([, y]) => y));
-const minX = Math.min(...input.map(([x]) => x));
-const minY = Math.min(...input.map(([, y]) => y));
-
-// Find all tiles inside the loop
-for (let x = minX; x <= maxX; x++) {
-	for (let y = minY; y <= maxY; y++) {
-		const key = `${x},${y}`;
-		if (!redTiles.has(key) && !greenTiles.has(key)) {
-			if (isPointInPolygon(x, y, input)) {
-				greenTiles.add(key);
-			}
-		}
-	}
+/**
+ * Check if a tile is valid (red or green).
+ * Red tiles are explicitly stored, green tiles are on edges or inside polygon.
+ *
+ * @param x - X coordinate
+ * @param y - Y coordinate
+ * @param redTiles - Set of red tile coordinates
+ * @param greenTiles - Set of green tile coordinates (on edges)
+ * @param polygon - Polygon vertices
+ * @returns True if tile is red or green
+ */
+function isValidTile(
+	x: number,
+	y: number,
+	redTiles: Set<string>,
+	greenTiles: Set<string>,
+	polygon: number[][],
+): boolean {
+	const key = `${x},${y}`;
+	if (redTiles.has(key)) return true;
+	if (greenTiles.has(key)) return true;
+	return isPointInPolygon(x, y, polygon);
 }
-
-// Create a set of all valid tiles (red or green)
-const validTiles = new Set<string>();
-for (const key of redTiles) validTiles.add(key);
-for (const key of greenTiles) validTiles.add(key);
 
 // Precompute all rectangle pairs sorted by area (largest first)
 // This allows us to find the maximum faster and skip smaller rectangles
@@ -111,6 +112,62 @@ for (let i = 0; i < input.length; i++) {
 	}
 }
 
+/**
+ * Check if a line segment intersects an axis-aligned bounding box (AABB).
+ * Uses Liang-Barsky algorithm for efficient line-AABB intersection.
+ *
+ * @param x1 - Start x of line segment
+ * @param y1 - Start y of line segment
+ * @param x2 - End x of line segment
+ * @param y2 - End y of line segment
+ * @param rectMinX - Minimum x of rectangle
+ * @param rectMaxX - Maximum x of rectangle
+ * @param rectMinY - Minimum y of rectangle
+ * @param rectMaxY - Maximum y of rectangle
+ * @returns True if the line segment intersects the rectangle
+ */
+function lineIntersectsAABB(
+	x1: number,
+	y1: number,
+	x2: number,
+	y2: number,
+	rectMinX: number,
+	rectMaxX: number,
+	rectMinY: number,
+	rectMaxY: number,
+): boolean {
+	const dx = x2 - x1;
+	const dy = y2 - y1;
+	let t0 = 0;
+	let t1 = 1;
+
+	// Check each edge of the rectangle
+	const edges = [
+		{ p: -dx, q: x1 - rectMinX }, // Left
+		{ p: dx, q: rectMaxX - x1 }, // Right
+		{ p: -dy, q: y1 - rectMinY }, // Bottom
+		{ p: dy, q: rectMaxY - y1 }, // Top
+	];
+
+	for (const edge of edges) {
+		if (Math.abs(edge.p) < 1e-10) {
+			// Line is parallel to this edge
+			if (edge.q < 0) return false; // Line is outside
+		} else {
+			const t = edge.q / edge.p;
+			if (edge.p < 0) {
+				if (t > t1) return false;
+				if (t > t0) t0 = t;
+			} else {
+				if (t < t0) return false;
+				if (t < t1) t1 = t;
+			}
+		}
+	}
+
+	return t0 <= t1;
+}
+
 // Sort by area descending
 pairs.sort((a, b) => b.area - a.area);
 
@@ -121,14 +178,59 @@ for (const pair of pairs) {
 	// (since pairs are sorted descending)
 	if (pair.area <= maxArea) break;
 
-	// Check if all tiles in the rectangle are valid (red or green)
-	// Optimize by checking rows and breaking early
+	// Check if all tiles in rectangle are valid (red or green)
+	// Optimize: check corners first - if all corners inside, rectangle is inside
+	const corners = [
+		[pair.minX, pair.minY],
+		[pair.maxX, pair.minY],
+		[pair.minX, pair.maxY],
+		[pair.maxX, pair.maxY],
+	];
+
+	let allCornersInside = true;
+	for (const [x, y] of corners) {
+		if (!isPointInPolygon(x, y, input)) {
+			allCornersInside = false;
+			break;
+		}
+	}
+
 	let isValid = true;
-	for (let y = pair.minY; y <= pair.maxY && isValid; y++) {
-		for (let x = pair.minX; x <= pair.maxX; x++) {
-			if (!validTiles.has(`${x},${y}`)) {
-				isValid = false;
-				break;
+	if (allCornersInside) {
+		// All corners inside = rectangle completely inside polygon
+		// Check if rectangle intersects any edge (would make it invalid)
+		let intersectsEdge = false;
+		for (let i = 0; i < input.length && !intersectsEdge; i++) {
+			const [x1, y1] = input[i];
+			const [x2, y2] = input[(i + 1) % input.length];
+
+			if (
+				lineIntersectsAABB(
+					x1,
+					y1,
+					x2,
+					y2,
+					pair.minX,
+					pair.maxX,
+					pair.minY,
+					pair.maxY,
+				)
+			) {
+				intersectsEdge = true;
+			}
+		}
+		if (intersectsEdge) {
+			isValid = false;
+		}
+		// If no edge intersection and all corners inside, all tiles are valid
+	} else {
+		// Some corners outside - check tiles individually
+		for (let y = pair.minY; y <= pair.maxY && isValid; y++) {
+			for (let x = pair.minX; x <= pair.maxX; x++) {
+				if (!isValidTile(x, y, redTiles, greenTiles, input)) {
+					isValid = false;
+					break;
+				}
 			}
 		}
 	}
